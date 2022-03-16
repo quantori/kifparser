@@ -4,7 +4,7 @@ Copyright (c) 2022 Quantori.
 SUO-KIF ontology parser
 
 # KEY FEATURES
-- Parse SOU-KIF ontology files
+- Parse SUO-KIF ontology files
 - Extract concepts with attributes from KIF formulas
 - Apply implications, perform inference
 - Export the extracted ontology to AIIRE and other formats
