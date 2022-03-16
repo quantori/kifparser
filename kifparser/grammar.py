@@ -6,23 +6,58 @@ can be subclassed and/or overriden.
 """
 from aiire import Grammar
 from .ontology import KIFOntology
+from typing import Type
 
 
 class KIFGrammar(Grammar):
+    """
+    KIFGrammar is an AIIRE grammar for SUO-KIF language.
+
+    This grammar is a combined object-oriented immediate constituent
+    grammar for AIIRE NLU core parser.
+
+    Classes of immediate constituents are defined as nested classes
+    of this class.
+    """
+
     ontology = KIFOntology()
 
     class Atom(Grammar.Atom):
+        """
+        KIFGrammar.Atom is the basic class of KIF language atoms.
 
-        categories = {}
+        These atoms are characters, their classes being determined
+        based on some categories determined in `get_category' method.
 
-        def get_cls_by_text(self):
+        @cvar categories: a mapping between category names and
+            corresponding immediate constituent classes (Atom
+            subclasses), which is used to get Atom class in
+            `get_cls_by_text' method.
+        """
+
+        categories = {}  # Filled later for each category-class pair
+
+        def get_cls_by_text(self) -> Type['KIFGrammar.Atom']:
+            """
+            Get atom class by its text.
+
+            @return: Atom subclass that corresponds to the category
+                of the character which is the atom's text.
+            """
             if self.text is None:
                 return
+            # Artoms should be characters
             assert len(self.text) == 1
             return self.categories[self.get_category(self.text)]
 
         @staticmethod
         def get_category(char: str) -> str:
+            """
+            Get KIF Atom category for a given character.
+
+            @param char: the character
+            @return: category name
+            """
             if char == '\n':
                 return 'newline'
             if char.isspace():
@@ -31,7 +66,15 @@ class KIFGrammar(Grammar):
                 return 'lparenthesis'
             if char == ')':
                 return 'rparenthesis'
-            if char.isalpha() or char.isdigit() or char == '_' or char == '.' or char == '-':
+            if(
+                char.isalpha() or char.isdigit() or char == '_' or
+                char == '.' or char == '-'
+            ):
+                # FIXME: ualnum is the old name for
+                # underscore/alphanumeric, which can be misleading.
+                # A new name should be found like ddualnum (dot,
+                # dash, underscore, alphanumeric) which will be
+                # readable and good for the constituent class
                 return 'ualnum'
             if char == ';':
                 return 'semicolon'
@@ -50,33 +93,46 @@ class KIFGrammar(Grammar):
             return 'unknown'
 
     class TextStart(Grammar.Constituent):
-        pass
+        """Any combination a text can start with, e.g.: 'SUMO'."""
 
     class CommentChar(TextStart):
-        pass
+        """A character that can be inside a comment, e.g.: 'a'."""
 
     class CommentStart(Grammar.Constituent):
-        pass
+        """Any combination that marks the start of a comment: ';'."""
 
     class Semicolon(Atom, CommentChar, CommentStart):
-        pass
+        """Semiclolon character: ';'."""
 
     Atom.categories['semicolon'] = Semicolon
 
     class Text(Grammar.AtomicConstituent, TextStart):
+        """
+        Arbitrary one-line text, e.g.: 'SUMO ontology is'.
+
+        CNF-style rule: Text -> TextStart CommentChar
+        """
+
         right_only = True
 
     Text.left = [TextStart]
     Text.right = [CommentChar]
 
     class Whitespaces(Grammar.AtomicConstituent, Grammar.Constituent):
-        pass
+        r"""Arbitrary sequence of whitespaces, e.g.: '    \n   '."""
 
     class Whitespace(Whitespaces):
-        pass
+        """Any whitespace character including newline, e.g.: ' '."""
 
     class WhitespaceComb(Whitespaces):
-        pass
+        """
+        Arbitrary combination of whitespaces, e.g.: '  '.
+
+        Single whitespace is a Whitespaces instance, but not
+        WhitespaceComb, because it is not a combination.
+
+        CNF-style rule: WhitespaceComb -> Whitespaces Whitespace
+        """
 
     WhitespaceComb.left = [Whitespaces]
     WhitespaceComb.right = [Whitespace]
@@ -433,5 +489,3 @@ class KIFGrammar(Grammar):
 
     KIF.left = [KIFPart]
     KIF.right = [KIFItem]
-
-

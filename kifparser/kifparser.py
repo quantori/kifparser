@@ -30,7 +30,7 @@ class KIFAgenda(Agenda):
     """KIFAgenda is AIIRE Agenda for KIF parser with KIF grammar."""
 
     def __init__(self):
-        """Create KIF agenda"""
+        """Create KIF agenda."""
         super().__init__(KIFGrammar())
 
 
@@ -42,7 +42,8 @@ class KIFParser(object):
     ) -> Generator[KIFGrammar.Constituent, None, None]:
         """
         Parse an IO (file-like object).
-        Draws a progress bar while parsing
+
+        Draws a progress bar while parsing.
 
         @param io: a file-like object to parse
         @yield: all possible constituents parser could recognize
