@@ -11,6 +11,10 @@ SUO-KIF ontology parser
 
 # Build instructions
 
+To install, do:
+
+    pip install https://github.com/quantori/kifparser
+
 Please read [DEVNOTES.md](DEVNOTES.md) for details.
 
 # Usage
