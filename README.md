@@ -11,7 +11,7 @@ SUO-KIF ontology parser
 
 # Build instructions
 
-Please read DEVNOTES.md for details.
+Please read [DEVNOTES.md](DEVNOTES.md) for details.
 
 # License
 
