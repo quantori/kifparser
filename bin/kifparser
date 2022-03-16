@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""
+This script parses a KIF file and saves AIIRE ontology CSV files.
+
+Usage:
+    kifparser < file.kif
+"""
+
+from kifparser import KIFParser, KIFGrammar
+import sys
+import csv
+
+
+def main():
+    """Parse KIF file, evaluate ontology, and save it."""
+    sys.setrecursionlimit(200000)
+    p = KIFParser()
+    largest = None
+    for obj in p.parse(sys.stdin):
+        # print(obj)
+        if largest is None:
+            if isinstance(obj, KIFGrammar.KIFPart):
+                largest = obj
+            continue
+        if isinstance(obj, KIFGrammar.KIFPart):
+            if obj.end - obj.start > largest.end - largest.start:
+                largest = obj
+    print(largest)
+    conc = largest.eval_conc()
+    # have_conc = KIFGrammar.ontology.create_or_get('have concept')
+    # for impl in conc.ontology.apply_implications():
+    #     conc.add_attr(have_conc, impl)
+    print(conc)
+    exprs_csv = open('exprs.csv', 'w')
+    concs_csv = open('concs.csv', 'w')
+    rels_csv = open('rels.csv', 'w')
+    exprs_out = csv.writer(exprs_csv)
+    concs_out = csv.writer(concs_csv)
+    rels_out = csv.writer(rels_csv)
+    expr_id = 1
+    rel_id = 1
+    for conc in conc.getattr('have concept'):
+        if hasattr(conc, 'descr'):
+            conc_name = conc.descr
+            expr_name = conc.name
+        else:
+            expr_name = conc_name = conc.name
+        exprs_out.writerow([expr_id, expr_name, expr_name])
+        concs_out.writerow([conc.id, expr_id, conc_name])
+        for attr in conc.attrs:
+            for obj in conc.attrs[attr]:
+                rels_out.writerow([rel_id, conc.id, attr.id, obj.id])
+                rel_id += 1
+        expr_id += 1
+        print(conc)
+    rels_csv.close()
+    concs_csv.close()
+    exprs_csv.close()
+
+
+if __name__ == '__main__':
+    main()

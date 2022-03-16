@@ -18,6 +18,8 @@ Possible usage:
 In the example above `obj' is a constituent object extracted by the
 parser, and `conc' is the concept evaluated from this constituent.
 """
-from .kifparser import KIFParser, KIFOntology, KIFGrammar, KIFAgenda
+from .kifparser import KIFParser, KIFAgenda
+from .ontology import KIFOntology
+from .grammar import KIFGrammar
 
 __all__ = (KIFParser, KIFOntology, KIFGrammar, KIFAgenda)

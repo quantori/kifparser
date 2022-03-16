@@ -13,6 +13,16 @@ SUO-KIF ontology parser
 
 Please read [DEVNOTES.md](DEVNOTES.md) for details.
 
+# Usage
+
+- Command-line:
+
+        kifparser < file.kif
+
+- Python:
+
+        from kifparser import KIFParser
+
 # License
 
 Kifparser is released under Apache License, Version 2.0
