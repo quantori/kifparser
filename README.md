@@ -1,7 +1,10 @@
 # kifparser
 Copyright (c) 2022 Quantori.
 
-SUO-KIF ontology parser
+SUO-KIF ontology parser is a free open-source parser for [SUO-KIF language](https://github.com/ontologyportal/sigmakee/blob/master/suo-kif.pdf) for ontologies like [SUMO](https://www.ontologyportal.org) in Python based on and integrated with [AIIRE Natural Language Understanding Core parser](http://aiire.org).
+
+This parser is tested with SUMO ontology files and can be used for
+any other SUO-KIF files.
 
 # KEY FEATURES
 - Parse SUO-KIF ontology files
