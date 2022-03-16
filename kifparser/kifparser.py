@@ -590,7 +590,8 @@ class KIFGrammar(Grammar):
 class KIFParser(object):
 
     def parse(
-            self, io: TextIO) -> Generator[KIFGrammar.Constituent, None, None]:
+            self, io: TextIO
+        ) -> Generator[KIFGrammar.Constituent, None, None]:
         agenda = self.create_agenda()
         pos = 0
         for line in tqdm.tqdm(io):
