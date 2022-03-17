@@ -138,140 +138,227 @@ class KIFGrammar(Grammar):
     WhitespaceComb.right = [Whitespace]
 
     class Spaces(Grammar.AtomicConstituent, Grammar.Constituent):
-        pass
+        """Arbitrary sequence of spaces, e.g.: '       '."""
 
     class Space(Atom, CommentChar, Whitespace, Whitespaces, Spaces):
-        pass
+        """Space character (not including newline), e.g.: ' '."""
 
     Atom.categories['space'] = Space
 
     class SpaceComb(Spaces):
-        pass
+        """
+        Arbitrary combination of spaces, e.g.: '  '.
+
+        Single space character is a Spaces instance, but not a
+        SpaceComb, because it is not a combination.
+
+        CNF-style rule: SpaceComb -> Spaces Space
+        """
 
     SpaceComb.left = [Spaces]
     SpaceComb.right = [Space]
 
     class LParenthesis(Atom, CommentChar):
-        pass
+        """Left parenthesis: '('."""
 
     Atom.categories['lparenthesis'] = LParenthesis
 
     class RParenthesis(Atom, CommentChar):
-        pass
+        """Right parenthesis: ')'."""
 
     Atom.categories['rparenthesis'] = RParenthesis
 
     class Quot(Atom, CommentChar):
-        pass
+        """Double quote: '"'."""
 
     Atom.categories['quot'] = Quot
 
     class LiteralStart(Grammar.Constituent):
-        pass
+        """Any combination which can be start of a literal: 'abc'."""
 
     class Predicate(Grammar.Constituent):
-        pass
+        """Any literal which bears a function of predicate: '=>'."""
 
     class QuantorLiteral(Grammar.Constituent):
-        pass
+        """Any literal which bears a function of quantor: 'exists'."""
 
     class Arguments(Grammar.Constituent):
+        """Any sequence of arguments: '?x Human (instance ?x ?y)'."""
+
         right_only = True
 
     class SingleArgument(Arguments):
-        def eval_conc(self):
+        """Single argument: 'Human'."""
+
+        def eval_conc(self) -> KIFOntology.Concept:
+            """Evaluate argument concept by name lookup."""
             return KIFGrammar.ontology.create_or_get(self.get_text())
 
     class ArgumentComb(Arguments, Grammar.InlineListConstituent):
-        pass
+        """Argument combination: '?x Human'."""
 
     class NonspacedArguments(Arguments):
-        pass
+        """Arguments without preceding space: '?x Human'."""
 
     class NonspacedSingleArgument(NonspacedArguments, SingleArgument):
-        pass
+        """Single argument without preceding space: 'Human'."""
 
     class NonspacedArgumentComb(NonspacedArguments, ArgumentComb):
-        pass
+        """
+        Argument combination without preceding space: '?x Human'.
+
+        CNF-style rule:
+        NonspacedArgumentComb ->
+            NonspacedArguments SpacedSingleArgument
+        """
 
     class Literal(LiteralStart, Predicate, NonspacedSingleArgument):
+        """
+        Any literal: 'Human'.
+
+        Literals can be both predicates and arguments.
+        """
+
         right_only = False
         literals = {}
 
         def __init__(self, *args, **kwargs):
+            """Create literal, also changing class."""
             super().__init__(*args, **kwargs)
             text = self.get_text()
             if text in self.literals:
                 self.__class__ = self.literals[text]
 
     class UAlNum(Atom, Literal, CommentChar):
-        pass
+        """
+        Underscore, alphanumeric, dot or dash character: 'a'.
+
+        UAlNum can be in a Literal or a Comment.
+        """
 
     Atom.categories['ualnum'] = UAlNum
 
     class ComplexLiteral(
-            Literal,
-            Grammar.AtomicConstituent,
-            Grammar.ListConstituent):
-        def eval_conc(self):
+        Literal, Grammar.AtomicConstituent, Grammar.ListConstituent
+    ):
+        """
+        Complex (2 characters or more) literal: 'Human'.
+
+        CNF-style rule: ComplexLiteral -> LiteralStart UAlNum
+        """
+
+        def eval_conc(self) -> KIFOntology.Concept:
+            """Evaluate concept by getting or creating it by name."""
             return KIFGrammar.ontology.create_or_get(self.get_text())
 
     ComplexLiteral.left = [LiteralStart]
     ComplexLiteral.right = [UAlNum]
 
     class KIFPart(Grammar.Constituent):
-        pass
+        """
+        Any immediate part of KIF file structure.
+
+        KIFPart can be atomic (KIFItem) or complex (can consist of
+        multiple KIFItems).
+        """
 
     class KIFItem(KIFPart):
-        pass
+        """
+        Any atomic immediate part of KIF file structure.
+
+        KIFItems are: EmptyLine, CommentLine, Assertion.
+        """
 
     class EmptyLine(KIFItem):
-        def eval_conc(self):
-            return None
+        """A separate line which is empty."""
+
+        def eval_conc(self) -> KIFOntology.Concept:
+            """Evaluate concept as None, do nothing."""
 
     class NewLine(Atom, EmptyLine, Whitespace):
-        pass
+        r"""Newline character: '\n'."""
 
     Atom.categories['newline'] = NewLine
 
     class BlankLine(Grammar.AtomicConstituent, EmptyLine):
-        pass
+        r"""
+        Blank line: '     \n'.
+
+        CNF-style rule: BlankLine -> Spaces NewLine
+        """
 
     BlankLine.left = [Spaces]
     BlankLine.right = [NewLine]
 
     class NewLinedText(Grammar.Constituent):
-        pass
+        r"""
+        Newline character followed by a text: '\n Lorem ipsum...'.
+
+        This constituent is used to extend Text to MultilineText.
+
+        CNF-style rule: NewLinedText -> NewLine Text
+        """
 
     NewLinedText.left = [NewLine]
     NewLinedText.right = [Text]
 
     class MultilineText(Grammar.AtomicConstituent, Grammar.ListConstituent):
+        r"""
+        Multiline text: 'Lorem ipsum\ndolor sit\namet'.
+
+        CNF-style rules:
+            MultilineText -> TextStart NewLinedText
+            MultilineText -> MultilineText NewLinedText
+        """
+
         right_only = True
 
     MultilineText.left = [TextStart, MultilineText]
     MultilineText.right = [NewLinedText]
 
     class OpenDocText(Grammar.Constituent):
-        pass
+        """
+        Documentation text with opening double quote: '"Lorem ...'.
+
+        CNF-style rules:
+            OpenDocText -> Quot Text
+            OpenDocText -> Quot MultilineText
+        """
 
     OpenDocText.left = [Quot]
     OpenDocText.right = [Text, MultilineText]
 
     class DocText(NonspacedSingleArgument):
-        pass
+        """
+        Documentation text with both double quote: '"Lorem ..."'.
+
+        CNF-style rules:
+            DocText -> OpenDocText Quot
+        """
 
     DocText.left = [OpenDocText]
     DocText.right = [Quot]
 
     class Comment(Grammar.AtomicConstituent, Grammar.ListConstituent):
-        pass
+        """
+        Comment: ';; Lorem ipsum dolor sit amet'.
+
+        CNF-style rule: Comment -> CommentStart TextStart
+        """
 
     class CommentLine(EmptyLine, Grammar.AtomicConstituent):
-        pass
+        r"""
+        Comment line: ';; Lorem ipsum dolor sit amet\n'.
+
+        CNF-style rule: CommentLine -> Comment NewLine
+        """
 
     class SpacedCommentStart(CommentStart):
-        pass
+        """
+        Comment start with spaces: '  ;'.
+
+        CNF-style rule: Spaces Semicolon
+        """
 
     SpacedCommentStart.left = [Spaces]
     SpacedCommentStart.right = [Semicolon]
@@ -283,18 +370,30 @@ class KIFGrammar(Grammar):
     CommentLine.right = [NewLine]
 
     class Unknown(Atom, CommentChar):
-        pass
+        """Unknown character: '!'."""
 
     Atom.categories['unknown'] = Unknown
 
     class SpacedArguments(Grammar.RightIdentityConstituent, Arguments):
+        """Arbitrary arguments with preceding spaces: '  ?a b'."""
+
         right_only = True
 
     class SpacedSingleArgument(SpacedArguments, SingleArgument):
-        pass
+        """
+        Single argument with preceding spaces: '   ?a'.
+
+        CNF-style rule:
+            SpacedSingleArgument -> Whitespaces NonspacedSingleArgument
+        """
 
     class SpacedArgumentComb(SpacedArguments, ArgumentComb):
-        pass
+        """
+        Argument combination with preceding spaces: '   ?a b'.
+
+        CNF-style rule:
+            SpacedArgumentComb -> Whitespaces NonspacedArgumentComb
+        """
 
     NonspacedArgumentComb.left = [NonspacedArguments]
     NonspacedArgumentComb.right = [SpacedSingleArgument]
@@ -306,18 +405,32 @@ class KIFGrammar(Grammar):
     SpacedArgumentComb.right = [NonspacedArgumentComb]
 
     class RightSpacedArguments(Grammar.LeftConc, SpacedArguments):
-        pass
+        """
+        Arguments followed by spaces: ' ?a b   '.
+
+        CNF-style rule:
+            RightSpacedArguments -> SpacedArguments Whitespaces
+        """
 
     RightSpacedArguments.left = [SpacedArguments]
     RightSpacedArguments.right = [Whitespaces]
 
     class AssertionContent(Grammar.Constituent):
+        """
+        Content of an assertion: 'predicate a ?b (c  d e )'.
+
+        CNF-style rule:
+            AssertionContent -> Predicate SpacedArguments
+        """
+
         right_only = True
 
         def eval_conc(self):
+            """Evaluate concept calling predicate with arguments."""
             predicate_c, arguments_c = self.childvars[0]
             predicate = KIFGrammar.ontology.create_or_get(
-                predicate_c.get_text())
+                predicate_c.get_text()
+            )
             arguments = arguments_c.eval_conc()
             return KIFGrammar.ontology.call(predicate, arguments)
 
@@ -325,93 +438,142 @@ class KIFGrammar(Grammar):
     AssertionContent.right = [SpacedArguments]
 
     class SpacedAssertionContent(
-            Grammar.RightIdentityConstituent,
-            AssertionContent):
-        pass
+        Grammar.RightIdentityConstituent,
+        AssertionContent
+    ):
+        """
+        Assertion content preceded by whitespace: ' predicate a b c'.
+
+        CNF-style rule:
+            SpacedAssertionContent -> Whitespace AssertionContent
+        """
 
     SpacedAssertionContent.left = [Whitespace]
     SpacedAssertionContent.right = [AssertionContent]
 
     class OpenAssertion(Grammar.RightConc):
-        pass
+        """
+        Assertion with opening (left) parenthesis: '(predicate a b'.
+
+        CNF-style rule:
+            OpenAssertion -> LParenthesis AssertionContent
+        """
 
     OpenAssertion.left = [LParenthesis]
     OpenAssertion.right = [AssertionContent]
 
     class Assertion(Grammar.LeftConc, NonspacedSingleArgument, KIFItem):
+        """
+        Assertion with both parentheses: '(predicate a b)'.
+
+        CNF-style rule: Assertion -> OpenAssertion RParenthesis
+        """
+
         right_only = False
 
     Assertion.left = [OpenAssertion]
     Assertion.right = [RParenthesis]
 
     class SpacedAssertion(Grammar.RightIdentityConstituent, KIFItem):
-        pass
+        """
+        Assertion preceded by whitespaces: '  (predicate a b)'.
+
+        CNF-style rule: SpacedAssertion -> Whitespaces Assertion
+        """
 
     SpacedAssertion.left = [Whitespaces]
     SpacedAssertion.right = [Assertion]
 
     class Amp(Atom, CommentChar):
-        pass
+        """Ampersand sign: '&'."""
 
     Atom.categories['amp'] = Amp
 
     class Percent(Atom, CommentChar):
-        pass
+        """Percent sign: '%'."""
 
     Atom.categories['percent'] = Percent
 
     class QMark(Atom, CommentChar):
-        pass
+        """Question mark: '?'."""
 
     Atom.categories['qmark'] = QMark
 
     class AtSign(Atom, CommentChar):
-        pass
+        """At sign: '@'."""
 
     Atom.categories['atsign'] = AtSign
 
     class Variables(Arguments):
-        pass
+        """Arbitrary sequence of variables: '?a ?b @c'."""
 
     class SingleVariable(
-            Grammar.AtomicConstituent,
-            Variables,
-            SingleArgument,
-            Predicate):
-        pass
+        Grammar.AtomicConstituent,
+        Variables,
+        SingleArgument,
+        Predicate
+    ):
+        """Single variable: '?a'."""
 
     class VariableComb(Variables, ArgumentComb):
-        pass
+        """Variable combination: '?a @b'."""
 
     class NonspacedVariables(Variables, NonspacedArguments):
-        pass
+        """Variable sequence without preceding spaces: '?a @b ?c'."""
 
     class NonspacedSingleVariable(
-            NonspacedVariables,
-            SingleVariable,
-            NonspacedSingleArgument):
-        pass
+        NonspacedVariables,
+        SingleVariable,
+        NonspacedSingleArgument
+    ):
+        """
+        Single variable without preceding spaces: '?a'.
+
+        CNF-style rule: NonspacedSingleVariable -> QMark Literal
+        """
 
     NonspacedSingleVariable.left = [QMark]
     NonspacedSingleVariable.right = [Literal]
 
     class NonspacedSingleVariadicVariable(NonspacedSingleVariable):
-        pass
+        """
+        Single variadic variable without preceding spaces: '@a'.
+
+        CNF-style rule:
+            NonspacedSingleVariadicVariable -> AtSign Literal
+        """
 
     NonspacedSingleVariadicVariable.left = [AtSign]
     NonspacedSingleVariadicVariable.righ = [Literal]
 
     class NonspacedVariableComb(NonspacedVariables, VariableComb):
-        pass
+        """
+        Variable combination without preceding spaces: '?a ?b'.
+
+        CNF-style rule:
+            NonspacedVariableComb ->
+                NonspacedVariables SpacedSingleVariable
+        """
 
     class SpacedVariables(Variables, Grammar.RightIdentityConstituent):
-        pass
+        """Variable sequence with preceding spaces: ' ?a ?b'."""
 
     class SpacedVariableComb(SpacedVariables, VariableComb):
-        pass
+        """
+        Variable combination with preceding whitespaces: ' ?a ?b'.
+
+        CNF-style rule:
+            SpacedVariableComb -> Whitespaces NonspacedVariableComb
+        """
 
     class SpacedSingleVariable(SpacedVariables, SingleVariable):
-        pass
+        """
+        Single variable with preceding whitespaces: ' ?a'.
+
+        CNF-style rule:
+            SpacedSingleVariable ->
+                Whitespaces NonspacedSingleVariable
+        """
 
     NonspacedVariableComb.left = [NonspacedVariables]
     NonspacedVariableComb.right = [SpacedSingleVariable]
@@ -423,27 +585,41 @@ class KIFGrammar(Grammar):
     SpacedSingleVariable.right = [NonspacedSingleVariable]
 
     class OpenVarGroup(Grammar.Constituent):
-        pass
+        """
+        Variable group with opening (left) parenthesis: '( ?a ?b'.
+
+        CNF-style rule: OpenVarGroup -> LParenthesis Variables
+        """
 
     OpenVarGroup.left = [LParenthesis]
     OpenVarGroup.right = [Variables]
 
     class QuantorArgument(Grammar.Constituent):
-        pass
+        """Quantor argument, a group of bound variables: '(?a ?b)'."""
 
     class SpacedQuantorArgument(Grammar.Constituent):
-        pass
+        """
+        Quantor argument with preceding spaces: '  (?a ?b)'.
+
+        CNF-style rule:
+            SpacedQuantorArgument -> Spaces QuantorArgument
+        """
 
     class Quantor(Predicate):
-        pass
+        """
+        Quantor with its bound variables: 'exists (?a ?b)'.
+
+        CNF-style rule:
+            Quantor -> QuantorLiteral SpacedQuantorArgument
+        """
 
     class Forall(QuantorLiteral, Grammar.AtomicConstituent):
-        pass
+        """The universal ∀ ('for all') quantifier: 'forall'."""
 
     Literal.literals['forall'] = Forall
 
     class Exists(QuantorLiteral, Grammar.AtomicConstituent):
-        pass
+        """The existential ∃ ('exists') quantifier: 'exists'."""
 
     Literal.literals['exists'] = Exists
 
@@ -453,27 +629,52 @@ class KIFGrammar(Grammar):
     Quantor.right = [SpacedQuantorArgument]
 
     class VarGroup(QuantorArgument, Grammar.LeftConc):
-        pass
+        """
+        Variable group with both parentheses: '(?a ?b)'.
+
+        CNF-style rule: VarGroup -> OpenVarGroup RParenthesis
+        """
 
     VarGroup.left = [OpenVarGroup]
     VarGroup.right = [RParenthesis]
 
     class ImplPredPart(Grammar.Constituent):
-        pass
+        """Implication predicate part: '=>'."""
 
     class Impl(Atom, CommentChar, ImplPredPart):
-        pass
+        """Implication predicate character: '>'."""
 
     Atom.categories['impl'] = Impl
 
     class ImplPredicate(Predicate, ImplPredPart, Grammar.AtomicConstituent):
-        pass
+        """
+        Implication predicate: '=>'.
+
+        A predicate with name which consists of characters:
+        '=', '>', '<'.
+
+        CNF-style rule: ImplPredicate -> ImplPredPart Impl
+        """
 
     ImplPredicate.left = [ImplPredPart]
     ImplPredicate.right = [Impl]
 
     class KIF(KIFPart, Grammar.ListConstituent):
-        def eval_conc(self):
+        """
+        SUO-KIF language file.
+
+        CNF-style rule: KIF -> KIFPart KIFItem
+        """
+
+        def eval_conc(self) -> KIFOntology.Concept:
+            """
+            Evaluate KIF concept from its parts.
+
+            @return: a concept of ontology with all concepts
+                extracted from KIF items. This concept is not an
+                Ontology instance, but rather a Concept instance;
+                it can be further transformed into an Ontology.
+            """
             items = self.get_list_items()
             conc = KIFGrammar.ontology.create_or_get('Ontology')
             have_conc = KIFGrammar.ontology.create_or_get('have concept')
