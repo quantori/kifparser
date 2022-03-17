@@ -34,4 +34,4 @@ Please read [DEVNOTES.md](DEVNOTES.md) for details.
 
 # License
 
-Kifparser is released under Apache License, Version 2.0
+Kifparser is released under [Apache License, Version 2.0](LICENSE)
