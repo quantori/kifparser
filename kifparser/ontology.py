@@ -7,6 +7,7 @@ inference with SUO-KIF predicates
 
 from aiire import Ontology
 from typing import Dict
+import logging
 
 
 class KIFOntology(Ontology):
@@ -26,23 +27,34 @@ class KIFOntology(Ontology):
     @ivar logical_operators: the mapping from logical operator
         predicate names to functions checking whether a concept
         fits with the logical formula formed by the operator
-
+    @cvar logger: the KIFOntology logger
     """
+
+    logger = logging.getLogger('KIFOntology')
 
     def __init__(self):
         """Create a KIFOntology."""
         super().__init__()
-        oconc = self.create_or_get('Ontology')
-        concconc = self.create_or_get('Concept')
-        have_conc = self.create_or_get('have concept')
-        oconc.add_attr(have_conc, concconc)
+
+        # Create basic concepts that will be used
+        ontology_conc = self.create_or_get('Ontology')
+        conc_conc = self.create_or_get('Concept')
+        have_conc_conc = self.create_or_get('have concept')
+        ontology_conc.add_attr(have_conc_conc, conc_conc)
+
+        # Predicates->methods mapping
         self.predicates = {
             'domain': self.domain_predicate,
             'documentation': self.doc_predicate,
             '=>': self.implication,
             '<=>': self.equivalence,
         }
+
+        # Implications (premise->conclusion pairs to be added on
+        # adding implication concepts)
         self.implications = []
+
+        # Logical operators (operator->method mapping)
         self.logical_operators = {
             self.create_or_get('and'): self.concept_fits_premise_conjunction,
             self.create_or_get('or'): self.concept_fits_premise_disjunction,
@@ -105,42 +117,67 @@ class KIFOntology(Ontology):
         @param predicate: the concept of the predicate
         @param arguments: the concept of the group of arguments
         """
+        self.log(f'eval {predicate.name}')
+
+        # Perform extra stuff by calling the predicate with arguments
+        # if predicate name is in self.predicates.
         if predicate.name in self.predicates:
             self.predicates[predicate.name](arguments)
-        # print(f'eval {predicate.name}')
+
+        # Extract argument concepts from `arguments'
         try:
+            # Normally, args is a group concept and has 'include'
+            # relation to items
             args = arguments.getattr('include')
         except KeyError:
+            # We assume that we have a single argument if there is
+            # no 'include' relation
             args = [arguments]
+
+        # Build the assertion concept (predicate together with its
+        # arguments as a single concept)
         predconc = self.create_or_get(
-            f'{predicate.name}({", ".join(a.name for a in args)})')
+            f'{predicate.name}({", ".join(a.name for a in args)})'
+        )
         have_pred = self.create_or_get('have predicate')
         predconc.add_attr(have_pred, predicate)
         for i, arg in enumerate(args):
             have_arg_rel = self.create_or_get(f'have argument #{i}')
             predconc.add_attr(have_arg_rel, arg)
+
+        # Add all binary predicates on constants as concept relations
         if len(args) == 2:
-            if not args[0].name.startswith(
-                    '?') and not args[1].name.startswith('?'):
+            if(
+                not args[0].name.startswith('?') and
+                not args[1].name.startswith('?')
+            ):
                 args[0].add_attr(predicate, args[1])
         return predconc
 
     def apply_implications(self):
-        """Apply the implications on the whole ontology."""
-        print('Applying implications')
-        found = False
-        for concept in list(self.by_name.values()):
+        """
+        Apply the implications on the whole ontology.
+
+        @yields: all new concepts created by applying implications
+        """
+        self.log('Applying implications')
+
+        # Implications inference should repeat until no new concepts
+        # can be created.
+        new_concepts_created = False
+        for concept in list(self):
             for premise, conclusion in self.implications:
-                vd = {}
+                vd = {}  # Variable dict: variable -> concept
                 if self.concept_fits_premise(concept, premise, vardict=vd):
+                    # Conclusion concept
                     c, is_new = self.apply_conclusion(vd, conclusion)
                     if is_new:
                         yield c
-                        # print('premise:', premise)
-                        # print('conclusion:', conclusion)
-                        # print('c:', c)
-                        found = True
-        if found:
+                        self.log('premise:', premise)
+                        self.log('conclusion:', conclusion)
+                        self.log('c:', c)
+                        new_concepts_created = True
+        if new_concepts_created:
             yield from self.apply_implications()
 
     def concept_fits_premise(
@@ -174,6 +211,7 @@ class KIFOntology(Ontology):
                     vardict[premise.name] = concept
                 return True
             return False
+
         try:
             prempred = premise.getattr('have predicate')[0]
         except KeyError:
@@ -182,11 +220,14 @@ class KIFOntology(Ontology):
                     vardict[premise.name] = concept
                 return True
             return False
+
         if prempred in self.logical_operators:
             return self.logical_operators[prempred](concept, premise, vardict)
+
         if concpred is not prempred:
-            # print(f'Predicate mismatch: {concpred}, {prempred}')
+            self.log(f'Predicate mismatch: {concpred}, {prempred}')
             return False
+
         for attr in premise.attrs:
             if not attr.name.startswith('have argument #'):
                 continue
@@ -286,6 +327,7 @@ class KIFOntology(Ontology):
             if conclusion.name in vardict:
                 return vardict[conclusion.name], False
             return conclusion, False
+
         new_attrs = {}
         args = []
         is_new = False
@@ -296,14 +338,20 @@ class KIFOntology(Ontology):
                 vardict, conclusion.attrs[attr][0])
             new_attrs[attr] = [argvalue]
             args.append(argvalue)
+
         have_pred = self.create_or_get('have predicate')
         name = f'{conclpred.name}({", ".join(a.name for a in args)})'
         is_new = is_new or (not (name in self.by_name))
         conc = self.create_or_get(name)
         if not is_new:
             return conc, False
+
         conc.add_attr(have_pred, conclpred)
         conc.attrs.update(new_attrs)
         if len(args) == 2:
             args[0].add_attr(conclpred, args[1])
         return conc, True
+
+    def log(self, msg: str, *args, **kwargs):
+        """Log a message with KIFOntology.logger.debug."""
+        self.logger.debug(msg, *args, **kwargs)

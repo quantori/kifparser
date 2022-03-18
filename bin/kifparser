@@ -74,12 +74,11 @@ def main():
     args = argparser.parse_args()
 
     # Configure script logger
+    logging.basicConfig(level=args.loglevel)
     logger = logging.getLogger(sys.argv[0])
-    logger.setLevel(args.loglevel)
     formatter = logging.Formatter('%(message)s')
     ch = logging.StreamHandler()
     ch.setFormatter(formatter)
-    ch.setLevel(args.loglevel)
     logger.addHandler(ch)
 
     # Parse trees of KIF files are very deep.
@@ -88,16 +87,19 @@ def main():
     # Parse the input file (args.infile)
     p = KIFParser()
     largest = None
+    largest_size = 0
+    # Find the parse tree with the largest coverage
     for obj in p.parse(args.infile):
         logger.debug(f'Found: {obj}')
-        if largest is None:
-            if isinstance(obj, KIFGrammar.KIFPart):
-                largest = obj
+        if not isinstance(obj, KIFGrammar.KIFPart):
             continue
-        if isinstance(obj, KIFGrammar.KIFPart):
-            if obj.end - obj.start > largest.end - largest.start:
-                largest = obj
+        if (largest is None) or (obj.end - obj.start > largest_size):
+            largest = obj
+            largest_size = largest.end - largest.start
+
     logger.info(f'The largest constituent found:\n{largest}')
+
+    # Evaluate concept (the meaning of the KIF parse tree)
     conc = largest.eval_conc()
 
     # Apply implications if set
