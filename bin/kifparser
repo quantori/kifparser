@@ -2,22 +2,94 @@
 """
 This script parses a KIF file and saves AIIRE ontology CSV files.
 
-Usage:
-    kifparser < file.kif
+Usage: kifparser [-h] [--implications] [--no-implications]
+    infile expressions_file concepts_file relations_file
+
+SUO-KIF parser.
+
+positional arguments:
+  infile             Input KIF file path or - for stdin
+  expressions_file   Output CSV file path for the expressions table
+                     or - for stdout
+  concepts_file      Output CSV file path for the concepts table
+                     or - for stdout
+  relations_file     Output CSV file path for the relations table
+                     or - for stdout
+
+optional arguments:
+  -h, --help         show this help message and exit
+  --implications     Apply implications inference
+  --no-implications  Do not apply implications inference (default)
+  -d, --debug        Print debugging information
+  -v, --verbose      Be verbose
 """
 
 from kifparser import KIFParser, KIFGrammar
+from aiire import Ontology
 import sys
-import csv
+import argparse
+import logging
 
 
 def main():
     """Parse KIF file, evaluate ontology, and save it."""
+    # Parse command line arguments
+    argparser = argparse.ArgumentParser(description='SUO-KIF parser.')
+    argparser.add_argument(
+        'infile', type=argparse.FileType('r'),
+        help='Input KIF file path or - for stdin'
+    )
+    argparser.add_argument(
+        'expressions_file', type=argparse.FileType('w'),
+        help='Output CSV file path for the expressions table or - for stdout'
+    )
+    argparser.add_argument(
+        'concepts_file', type=argparse.FileType('w'),
+        help='Output CSV file path for the concepts table or - for stdout'
+    )
+    argparser.add_argument(
+        'relations_file', type=argparse.FileType('w'),
+        help='Output CSV file path for the relations table or - for stdout'
+    )
+    argparser.add_argument(
+        '--implications', action='store_true',
+        help='Apply implications inference'
+    )
+    argparser.add_argument(
+        '--no-implications', action='store_false',
+        help='Do not apply implications inference (default)'
+    )
+    argparser.add_argument(
+        '-d', '--debug',
+        help="Print debugging information",
+        action="store_const", dest="loglevel", const=logging.DEBUG,
+        default=logging.WARNING,
+    )
+    argparser.add_argument(
+        '-v', '--verbose',
+        help="Be verbose",
+        action="store_const", dest="loglevel", const=logging.INFO,
+    )
+    argparser.set_defaults(implications=False)
+    args = argparser.parse_args()
+
+    # Configure script logger
+    logger = logging.getLogger(sys.argv[0])
+    logger.setLevel(args.loglevel)
+    formatter = logging.Formatter('%(message)s')
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    ch.setLevel(args.loglevel)
+    logger.addHandler(ch)
+
+    # Parse trees of KIF files are very deep.
     sys.setrecursionlimit(200000)
+
+    # Parse the input file (args.infile)
     p = KIFParser()
     largest = None
-    for obj in p.parse(sys.stdin):
-        # print(obj)
+    for obj in p.parse(args.infile):
+        logger.debug(f'Found: {obj}')
         if largest is None:
             if isinstance(obj, KIFGrammar.KIFPart):
                 largest = obj
@@ -25,37 +97,33 @@ def main():
         if isinstance(obj, KIFGrammar.KIFPart):
             if obj.end - obj.start > largest.end - largest.start:
                 largest = obj
-    print(largest)
+    logger.info(f'The largest constituent found:\n{largest}')
     conc = largest.eval_conc()
-    # have_conc = KIFGrammar.ontology.create_or_get('have concept')
-    # for impl in conc.ontology.apply_implications():
-    #     conc.add_attr(have_conc, impl)
-    print(conc)
-    exprs_csv = open('exprs.csv', 'w')
-    concs_csv = open('concs.csv', 'w')
-    rels_csv = open('rels.csv', 'w')
-    exprs_out = csv.writer(exprs_csv)
-    concs_out = csv.writer(concs_csv)
-    rels_out = csv.writer(rels_csv)
-    expr_id = 1
-    rel_id = 1
-    for conc in conc.getattr('have concept'):
-        if hasattr(conc, 'descr'):
-            conc_name = conc.descr
-            expr_name = conc.name
-        else:
-            expr_name = conc_name = conc.name
-        exprs_out.writerow([expr_id, expr_name, expr_name])
-        concs_out.writerow([conc.id, expr_id, conc_name])
-        for attr in conc.attrs:
-            for obj in conc.attrs[attr]:
-                rels_out.writerow([rel_id, conc.id, attr.id, obj.id])
-                rel_id += 1
-        expr_id += 1
-        print(conc)
-    rels_csv.close()
-    concs_csv.close()
-    exprs_csv.close()
+
+    # Apply implications if set
+    if args.implications:
+        have_conc = KIFGrammar.ontology.create_or_get('have concept')
+        for impl in conc.ontology.apply_implications():
+            conc.add_attr(have_conc, impl)
+
+    logger.info(f'Evaluated concept:\n{conc}')
+
+    # Save the extracted ontology
+    extracted_ontology = Ontology.from_concept(conc)
+    extracted_ontology.save_db_csv(
+        args.expressions_file, args.concepts_file,
+        args.relations_file
+    )
+
+    # Close the file handles open by argparse
+    if args.infile is not sys.stdin:
+        args.infile.close()
+    if args.expressions_file is not sys.stdout:
+        args.expressions_file.close()
+    if args.concepts_file is not sys.stdout:
+        args.concepts_file.close()
+    if args.relations_file is not sys.stdout:
+        args.relations_file.close()
 
 
 if __name__ == '__main__':

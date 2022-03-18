@@ -30,7 +30,22 @@ Please read [DEVNOTES.md](DEVNOTES.md) for details.
 
 - Command-line:
 
-        kifparser < file.kif
+        kifparser [-h] [--implications] [--no-implications] infile expressions_file concepts_file relations_file
+
+        SUO-KIF parser.
+        
+        positional arguments:
+          infile             Input KIF file path or - for stdin
+          expressions_file   Output CSV file path for the expressions table or - for stdout
+          concepts_file      Output CSV file path for the concepts table or - for stdout
+          relations_file     Output CSV file path for the relations table or - for stdout
+        
+        optional arguments:
+          -h, --help         show this help message and exit
+          --implications     Apply implications inference
+          --no-implications  Do not apply implications inference (default)
+          -d, --debug        Print debugging information
+          -v, --verbose      Be verbose
 
 - Python:
 

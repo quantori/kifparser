@@ -23,4 +23,4 @@ from .ontology import KIFOntology
 from .grammar import KIFGrammar
 
 __all__ = ('KIFParser', 'KIFOntology', 'KIFGrammar', 'KIFAgenda')
-__version__ = '0.0.0'
+__version__ = '0.0.1'
