@@ -44,25 +44,9 @@ class KIFOntology(Ontology):
         }
         self.implications = []
         self.logical_operators = {
-            self.create_or_get('and'): lambda c, p, v: (
-                self.concept_fits_premise(
-                    c, p.getattr('have argument #0')[0], v
-                ) and self.concept_fits_premise(
-                    c, p.getattr('have argument #1')[0], v
-                )
-            ),
-            self.create_or_get('or'): lambda c, p, v: (
-                self.concept_fits_premise(
-                    c, p.getattr('have argument #0')[0], v
-                ) or self.concept_fits_premise(
-                    c, p.getattr('have argument #1')[0], v
-                )
-            ),
-            self.create_or_get('not'): lambda c, p, v: (
-                not self.concept_fits_premise(
-                    c, p.getattr('have argument #0')[0], v
-                )
-            ),
+            self.create_or_get('and'): self.concept_fits_premise_conjunction,
+            self.create_or_get('or'): self.concept_fits_premise_disjunction,
+            self.create_or_get('not'): self.concept_fits_premise_negation
         }
 
     def domain_predicate(self, args: Ontology.Concept):
@@ -220,6 +204,67 @@ class KIFOntology(Ontology):
             ):
                 return False
         return True
+
+    def concept_fits_premise_conjunction(
+        self,
+        concept: Ontology.Concept, premise: Ontology.Concept,
+        vardict: Dict[str, Ontology.Concept]
+    ) -> bool:
+        """
+        Check whether `concept' fits conjunction of premises.
+
+        @param concept: the concept to check
+        @param premise: the conjunction of premises to check
+        @vardict: the mapping from variable names to their values
+            found in `concept'
+        @return: True if `concept' fits both arguments of the
+            conjunction as premises, otherwise False
+        """
+        return self.concept_fits_premise(
+            concept, premise.getattr('have argument #0')[0], vardict
+        ) and self.concept_fits_premise(
+            concept, premise.getattr('have argument #1')[0], vardict
+        )
+
+    def concept_fits_premise_disjunction(
+        self,
+        concept: Ontology.Concept, premise: Ontology.Concept,
+        vardict: Dict[str, Ontology.Concept]
+    ) -> bool:
+        """
+        Check whether `concept' fits disjunction of premises.
+
+        @param concept: the concept to check
+        @param premise: the disjunction of premises to check
+        @vardict: the mapping from variable names to their values
+            found in `concept'
+        @return: True if `concept' fits any of the disjunction
+            arguments as premises, otherwise False
+        """
+        return self.concept_fits_premise(
+            concept, premise.getattr('have argument #0')[0], vardict
+        ) or self.concept_fits_premise(
+            concept, premise.getattr('have argument #1')[0], vardict
+        )
+
+    def concept_fits_premise_negation(
+        self,
+        concept: Ontology.Concept, premise: Ontology.Concept,
+        vardict: Dict[str, Ontology.Concept]
+    ) -> bool:
+        """
+        Check whether `concept' fits negation of a premise.
+
+        @param concept: the concept to check
+        @param premise: the negation of a premise to check
+        @vardict: the mapping from variable names to their values
+            found in `concept'
+        @return: True if `concept' does not fit the negation
+            argument as premise, otherwise False
+        """
+        return not self.concept_fits_premise(
+            concept, premise.getattr('have argument #0')[0], vardict
+        )
 
     def apply_conclusion(
         self,
