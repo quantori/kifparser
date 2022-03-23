@@ -6,7 +6,7 @@ inference with SUO-KIF predicates
 """
 
 from aiire import Ontology
-from typing import Dict
+from typing import Dict, Generator
 import logging
 
 
@@ -154,7 +154,7 @@ class KIFOntology(Ontology):
                 args[0].add_attr(predicate, args[1])
         return predconc
 
-    def apply_implications(self):
+    def apply_implications(self) -> Generator[Ontology.Concept, None, None]:
         """
         Apply the implications on the whole ontology.
 
@@ -169,13 +169,22 @@ class KIFOntology(Ontology):
             for premise, conclusion in self.implications:
                 vd = {}  # Variable dict: variable -> concept
                 if self.concept_fits_premise(concept, premise, vardict=vd):
-                    # Conclusion concept
-                    c, is_new = self.apply_conclusion(vd, conclusion)
+                    # Apply the conclusion to the original concept using
+                    # `vd' variable dict.
+                    # Store the applied conclusion in `capplied'
+                    # If `capplied' is a newly created concept, then
+                    # `is_new' will hold True; if it is False, then
+                    # it means that applying the conclusion led to a
+                    # concept which had already been in the ontology.
+                    capplied, is_new = self.apply_conclusion(vd, conclusion)
                     if is_new:
-                        yield c
+                        yield capplied
                         self.log('premise:', premise)
-                        self.log('conclusion:', conclusion)
-                        self.log('c:', c)
+                        self.log('conclusion:', capplied)
+                        self.log(
+                            'conclusion applied to original concept:',
+                            capplied
+                        )
                         new_concepts_created = True
         if new_concepts_created:
             yield from self.apply_implications()
