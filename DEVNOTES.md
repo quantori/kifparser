@@ -1,5 +1,7 @@
 # Build instructions
 
+## Building
+
 - Either run:
 
         pip install https://github.com/quantori/kifparser
@@ -9,7 +11,7 @@
         git clone https://github.com/quantori/kifparser
         pip install ./kifparser
 
-# Unit tests and linting
+## Unit tests and linting
 
 - To run unit tests and linting:
 
