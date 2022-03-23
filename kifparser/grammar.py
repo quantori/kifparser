@@ -18,6 +18,9 @@ class KIFGrammar(Grammar):
 
     Classes of immediate constituents are defined as nested classes
     of this class.
+    
+    These classes are used by Grammar.bind method to produce immediate
+    constituents for parse trees.
     """
 
     ontology = KIFOntology()

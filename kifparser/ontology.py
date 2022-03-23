@@ -30,7 +30,7 @@ class KIFOntology(Ontology):
     @cvar logger: the KIFOntology logger
     """
 
-    logger = logging.getLogger('KIFOntology')
+    logger = logging.getLogger('kifparser.KIFOntology')
 
     def __init__(self):
         """Create a KIFOntology."""
