@@ -228,22 +228,36 @@ class KIFOntology(Ontology):
             self.log(f'Predicate mismatch: {concpred}, {prempred}')
             return False
 
+        # For each premise predicate argument, check whether the `concept'
+        # predicate either does not have this argument, or it has
+        # a value which fits with the premise argument value
         for attr in premise.attrs:
             if not attr.name.startswith('have argument #'):
                 continue
             if attr not in concept.attrs:
                 return False
-            if not any(
-                all(
+
+            # Both `premise' and `concept' attribute technically can
+            # have multiple values.
+            # For each `premise' attribute value, `concept' must have
+            # an attribute value which fits whith it.
+            for premise_attr_value in premise.attrs[attr]:
+                if any(
                     self.concept_fits_premise(
                         conc_attr_value,
                         premise_attr_value,
                         vardict=vardict
                     )
                     for conc_attr_value in concept.attrs[attr]
-                ) for premise_attr_value in premise.attrs[attr]
-            ):
+                ):
+                    # A conc_attr_value which fits with premise_attr_value
+                    # is found, we have to continue
+                    continue
+                # No conc_attr_value fitting with premise_attr_value
+                # could be found, so `concept' does not fit with `premise'
                 return False
+
+        # No evidence was found that the concept does not fit with the premise
         return True
 
     def concept_fits_premise_conjunction(
